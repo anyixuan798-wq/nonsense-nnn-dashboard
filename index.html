@@ -300,6 +300,12 @@
     document.getElementById("o_rate").textContent = o.rate_per_min ? o.rate_per_min.toFixed(1)+" NNN/分" : "—";
     document.getElementById("o_day").textContent = o.daily ? fmt(o.daily,0)+" NNN/天" : "—";
     document.getElementById("o_emit").textContent = o.share_of_emission ? (o.share_of_emission*100).toFixed(2)+"%" : "—";
+    var sh = null;
+    if(LOCAL && LOCAL.miner && LOCAL.miner.hashrate && n.hashrate)
+      sh = (LOCAL.miner.hashrate / n.hashrate * 100).toFixed(3) + "% (按算力" +
+           (LOCAL.miner.hashrate_estimated ? "估算" : "") + ")";
+    else if(o.share_of_emission) sh = (o.share_of_emission*100).toFixed(2) + "% (按产出估算)";
+    document.getElementById("o_share").textContent = sh || "—";
     var secs = Math.max(0, Date.now()/1000 - S.updated);
     document.getElementById("livetxt").textContent = "数据 " + ago(secs);
     document.getElementById("livedot").className = "dot" + (secs>900?" dead":(secs>420?" stale":""));
@@ -329,9 +335,6 @@
     if(S && S.network.hashrate && L.miner && L.miner.hashrate){
       document.getElementById("o_share").textContent =
         (L.miner.hashrate / S.network.hashrate * 100).toFixed(3) + "% (按算力" + (L.miner.hashrate_estimated?"估算":"") + ")";
-    } else if(S && S.ours && S.ours.share_of_emission){
-      document.getElementById("o_share").textContent =
-        (S.ours.share_of_emission*100).toFixed(2) + "% (按产出估算)";
     }
   }
 

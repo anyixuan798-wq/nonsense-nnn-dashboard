@@ -180,8 +180,13 @@ def main():
             try:
                 raw = binascii.unhexlify((t.get("raw") or {}).get("payload") or "")
                 txt = bytes(c for c in raw if 32 <= c < 127).decode("ascii", "replace")
-                m = re.findall(r"\d+\.\d+\.\d+/[\w\-\.]+", txt)
-                ua = m[-1] if m else txt[-24:]
+                if "nonsenseminer" in txt:
+                    ua = "nonsenseminer-2.3.0"
+                elif "karlsen-miner" in txt or re.search(r"3\.1\.0", txt):
+                    ua = "karlsen-miner-3.1.0"
+                else:
+                    m = re.findall(r"\d+\.\d+\.\d+/[\w\-\.]+", txt)
+                    ua = m[-1] if m else ""
             except Exception:
                 pass
             e = miners["addr"].setdefault(a, {"n": 0, "last": 0, "ua": ""})
