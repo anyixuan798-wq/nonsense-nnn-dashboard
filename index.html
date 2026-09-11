@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NONSENSE (NNN) · 全网算力 & 矿机看板</title>
+<style>
+  :root{
+    --bg:#0d0f0e; --panel:#141816; --panel2:#181d1b; --line:#242b28; --line2:#2f3936;
+    --fg:#e8efe9; --dim:#8c9a93; --dim2:#5f6d66;
+    --acc:#c8ff3d; --acc2:#7ff5c2; --warn:#ffc447; --bad:#ff6b5e;
+    --mono: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:14px;line-height:1.5}
+  a{color:var(--acc2);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 18px 60px}
+  header.top{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;
+    border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:20px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .brand .mark{width:38px;height:38px;border-radius:9px;background:linear-gradient(160deg,#c8ff3d,#4fd18b);
+    color:#0d0f0e;display:grid;place-items:center;font-weight:700;font-size:20px}
+  .brand h1{font-size:17px;margin:0;letter-spacing:.5px}
+  .brand .sub{color:var(--dim);font-size:12px}
+  .topright{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--dim)}
+  .pill{border:1px solid var(--line2);border-radius:999px;padding:4px 10px;display:inline-flex;gap:7px;align-items:center}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--acc);box-shadow:0 0 8px var(--acc)}
+  .dot.stale{background:var(--warn);box-shadow:0 0 8px var(--warn)}
+  .dot.dead{background:var(--bad);box-shadow:0 0 8px var(--bad)}
+  h2.sec{font-size:12px;letter-spacing:2px;color:var(--dim);margin:26px 0 10px;text-transform:uppercase}
+  .grid{display:grid;gap:12px}
+  .cards{grid-template-columns:repeat(auto-fit,minmax(165px,1fr))}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 14px}
+  .card .k{font-size:11px;color:var(--dim);letter-spacing:.6px;display:flex;justify-content:space-between;gap:6px}
+  .card .v{font-size:22px;font-weight:600;margin-top:7px;font-variant-numeric:tabular-nums}
+  .card .s{font-size:11px;color:var(--dim2);margin-top:4px}
+  .card.hero{grid-column:span 2;background:linear-gradient(150deg,#151c19,#121614)}
+  .card.hero .v{font-size:34px;color:var(--acc)}
+  .up{color:var(--acc2)} .down{color:var(--bad)} .flat{color:var(--dim)}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+  .seg{display:flex;gap:6px}
+  .seg button{background:var(--panel2);border:1px solid var(--line2);color:var(--dim);border-radius:8px;
+    padding:4px 10px;font-family:var(--mono);font-size:12px;cursor:pointer}
+  .seg button.on{background:var(--acc);border-color:var(--acc);color:#0d0f0e;font-weight:600}
+  canvas{width:100%;height:260px;display:block}
+  .legend{display:flex;gap:16px;font-size:12px;color:var(--dim);flex-wrap:wrap}
+  .lg{display:flex;gap:6px;align-items:center}
+  .sw{width:14px;height:3px;border-radius:2px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line)}
+  th{color:var(--dim);font-weight:500;font-size:11px;letter-spacing:.6px}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  tr.mine{background:rgba(200,255,61,.07)}
+  tr.mine td:first-child{border-left:2px solid var(--acc)}
+  .tag{font-size:10.5px;border:1px solid var(--line2);border-radius:6px;padding:1px 6px;color:var(--dim);white-space:nowrap}
+  .tag.gpu{color:#9ad7ff;border-color:#294a5e}
+  .tag.cpu{color:var(--warn);border-color:#5a4a1f}
+  .two{display:grid;gap:12px;grid-template-columns:1.15fr .85fr}
+  @media(max-width:860px){.two{grid-template-columns:1fr}.card.hero{grid-column:span 1}}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:7px 14px;font-size:13px}
+  .kv .k{color:var(--dim)}
+  .kv .v{text-align:right;font-variant-numeric:tabular-nums}
+  .bar{height:6px;background:var(--panel2);border-radius:4px;overflow:hidden;border:1px solid var(--line)}
+  .bar > i{display:block;height:100%;background:linear-gradient(90deg,#4fd18b,#c8ff3d)}
+  footer{margin-top:34px;border-top:1px solid var(--line);padding-top:14px;color:var(--dim2);font-size:11.5px}
+  .mono-scroll{max-height:320px;overflow:auto}
+  .err{color:var(--bad);font-size:11px;white-space:pre-wrap;word-break:break-all}
+  .addr{font-size:11.5px;color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand">
+      <div class="mark">N</div>
+      <div>
+        <h1>NONSENSE (NNN) · 全网算力 &amp; 矿机看板</h1>
+        <div class="sub">非官方 · 数据来自 explorer.nonsense.rodeo，本机矿机实时状态来自本地采集器</div>
+      </div>
+    </div>
+    <div class="topright">
+      <span class="pill" id="livep"><span class="dot" id="livedot"></span><span id="livetxt">加载中…</span></span>
+      <a href="https://explorer.nonsense.rodeo/" target="_blank">区块浏览器 ↗</a>
+      <a href="https://nonsense.rodeo/" target="_blank">官网 ↗</a>
+      <a href="https://github.com/anyixuan798-wq/nonsense-nnn-dashboard" target="_blank">源码 ↗</a>
+    </div>
+  </header>
+
+  <h2 class="sec">全网</h2>
+  <div class="grid cards">
+    <div class="card hero">
+      <div class="k"><span>全网算力 NETWORK HASHRATE</span><span id="hr_trend" class="flat"></span></div>
+      <div class="v" id="hr">—</div>
+      <div class="s" id="hr_sub">—</div>
+    </div>
+    <div class="card">
+      <div class="k"><span>难度 DIFFICULTY</span><span id="d_trend" class="flat"></span></div>
+      <div class="v" id="diff">—</div>
+      <div class="s" id="diff_sub">—</div>
+    </div>
+    <div class="card">
+      <div class="k"><span>出块速率</span></div>
+      <div class="v" id="brate">—</div>
+      <div class="s">目标 1.00 块/秒</div>
+    </div>
+    <div class="card">
+      <div class="k"><span>P2P 节点</span></div>
+      <div class="v" id="peers">—</div>
+      <div class="s" id="peers_sub">—</div>
+    </div>
+    <div class="card">
+      <div class="k"><span>DAG DAA 高度</span></div>
+      <div class="v" id="daa">—</div>
+      <div class="s" id="daa_sub">—</div>
+    </div>
+    <div class="card">
+      <div class="k"><span>流通量 CIRCULATING</span></div>
+      <div class="v" id="circ">—</div>
+      <div class="s">上限 20 亿 NNN</div>
+    </div>
+    <div class="card">
+      <div class="k"><span>全网日产出</span></div>
+      <div class="v" id="netday">—</div>
+      <div class="s">20 NNN / 块（通缩前）</div>
+    </div>
+  </div>
+
+  <h2 class="sec">算力趋势</h2>
+  <div class="panel">
+    <div class="row" style="margin-bottom:10px">
+      <div class="legend">
+        <span class="lg"><i class="sw" style="background:#c8ff3d"></i>全网算力</span>
+        <span class="lg"><i class="sw" style="background:#7ff5c2"></i>难度</span>
+        <span class="lg" id="chartinfo" style="color:var(--dim2)"></span>
+      </div>
+      <div class="seg" id="ranges">
+        <button data-h="1" class="on">1H</button>
+        <button data-h="6">6H</button>
+        <button data-h="24">24H</button>
+        <button data-h="0">全部</button>
+      </div>
+    </div>
+    <canvas id="chart"></canvas>
+  </div>
+
+  <h2 class="sec">我的矿机</h2>
+  <div class="two">
+    <div class="panel">
+      <div class="row" style="margin-bottom:10px">
+        <div><b id="rig_name">GTX 1060 6GB</b> <span class="tag gpu" id="rig_tag">GPU</span></div>
+        <div class="addr" id="rig_local_age">本地采集器：—</div>
+      </div>
+      <div class="kv">
+        <div class="k">GPU 利用率</div><div class="v" id="g_util">—</div>
+        <div class="k">GPU 温度</div><div class="v" id="g_temp">—</div>
+        <div class="k">GPU 功耗</div><div class="v" id="g_pow">—</div>
+        <div class="k">显存占用</div><div class="v" id="g_mem">—</div>
+        <div class="k">矿工软件</div><div class="v" id="g_soft">—</div>
+        <div class="k">矿工进程</div><div class="v" id="g_proc">—</div>
+      </div>
+      <div class="bar" style="margin-top:12px"><i id="mem_bar" style="width:0%"></i></div>
+    </div>
+
+    <div class="panel">
+      <div class="row" style="margin-bottom:10px">
+        <div><b>收益</b></div>
+        <div class="addr" id="our_addr">—</div>
+      </div>
+      <div class="kv">
+        <div class="k">钱包余额</div><div class="v" id="o_bal">—</div>
+        <div class="k">累计出块</div><div class="v" id="o_utxo">—</div>
+        <div class="k">产出速率</div><div class="v" id="o_rate">—</div>
+        <div class="k">预估日产出</div><div class="v" id="o_day">—</div>
+        <div class="k">算力占比</div><div class="v" id="o_share">—</div>
+        <div class="k">占全网发行</div><div class="v" id="o_emit">—</div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="sec">矿工排行（最近扫描到的 coinbase 收款地址）</h2>
+  <div class="panel">
+    <div class="row" style="margin-bottom:8px">
+      <div class="addr" id="miners_meta">—</div>
+      <div class="legend">
+        <span class="lg"><span class="tag gpu">GPU</span> 疑似显卡矿工</span>
+        <span class="lg"><span class="tag cpu">CPU</span> 官方 CPU 矿工</span>
+      </div>
+    </div>
+    <div class="mono-scroll">
+      <table id="miners_tbl">
+        <thead><tr><th>#</th><th>收款地址</th><th class="num">出块</th><th class="num">占比</th><th>软件指纹</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <h2 class="sec">最近区块</h2>
+  <div class="panel mono-scroll">
+    <table id="blocks_tbl">
+      <thead><tr><th>DAA</th><th class="num">时间</th><th class="num">难度</th><th>哈希</th><th class="num">交易</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <footer>
+    <div id="foot_meta">—</div>
+    <div style="margin-top:6px">
+      数据源：<a href="https://explorer.nonsense.rodeo/api/stats" target="_blank">explorer.nonsense.rodeo/api</a>
+      （每 5 分钟由 GitHub Actions 采集）+ 本机 GPU 状态（本地采集器推送）。
+      本页是第三方非官方看板，与 Nonsense 项目方无关；NNN 目前无市场价格，所有数字仅为链上数量。
+    </div>
+    <div class="err" id="errs"></div>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  window.__errs = window.__errs || [];
+  window.onerror = function(m,s,l){ window.__errs.push(m+" @"+l); renderErrs(); };
+
+  var REPO = "anyixuan798-wq/nonsense-nnn-dashboard";
+  var RAW  = "https://raw.githubusercontent.com/" + REPO + "/";
+  // 数据由本机每 5 分钟采集 → 强推单提交分支 live（不开 Pages 重新部署，避免 Pages 10 次/小时构建上限）
+  // 浏览器优先读 raw（CORS: *），失败回退同源 ./data/
+  var SRC = [
+    function(name){ return RAW + "live/data/" + name + "?t=" + Date.now(); },
+    function(name){ return "./data/" + name + "?t=" + Date.now(); }
+  ];
+  var S = null, HIST = [], MINERS = null, BLOCKS = null, LOCAL = null, RANGE_H = 1;
+
+  function fmt(n, d){ if(n===null||n===undefined||isNaN(n)) return "—";
+    return Number(n).toLocaleString("en-US",{minimumFractionDigits:d||0,maximumFractionDigits:d||0}); }
+  function hash(n){ // 1234567 -> 1.23 MH/s
+    if(n===null||n===undefined||isNaN(n)||n<=0) return "—";
+    var u=[[1e12,"TH/s"],[1e9,"GH/s"],[1e6,"MH/s"],[1e3,"KH/s"]];
+    for(var i=0;i<u.length;i++) if(n>=u[i][0]) return (n/u[i][0]).toFixed(2)+" "+u[i][1];
+    return n.toFixed(0)+" H/s";
+  }
+  function ago(sec){ if(sec<60) return sec.toFixed(0)+" 秒前"; if(sec<3600) return (sec/60).toFixed(0)+" 分钟前";
+    if(sec<86400) return (sec/3600).toFixed(1)+" 小时前"; return (sec/86400).toFixed(1)+" 天前"; }
+  function short(a){ return a ? a.slice(0,18)+"…"+a.slice(-6) : "—"; }
+
+  function getJSON(urls, i, cb){
+    i = i || 0;
+    if(i >= urls.length){ cb(null); return; }
+    fetch(urls[i], {cache:"no-store"})
+      .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
+      .then(function(j){ cb(j); })
+      .catch(function(){ getJSON(urls, i+1, cb); });
+  }
+  function load(name, cb, urls){
+    urls = urls || SRC;
+    var links = urls.map(function(f){ return f(name); });
+    getJSON(links, 0, cb);
+  }
+
+  function renderErrs(){
+    var e = document.getElementById("errs");
+    e.textContent = window.__errs.length ? ("页面错误：" + window.__errs.join(" | ")) : "";
+  }
+
+  /* ---------------- render ---------------- */
+  function renderTop(){
+    if(!S) return;
+    var n = S.network;
+    document.getElementById("hr").textContent = hash(n.hashrate);
+    document.getElementById("hr_sub").textContent = "算力 ≈ 难度 × " + (n.hashrate/n.difficulty).toFixed(2) + "（explorer 估算法）";
+    document.getElementById("diff").textContent = fmt(n.difficulty,0);
+    document.getElementById("diff_sub").textContent = "最近 100 块均值 " + fmt(n.difficulty_avg100,0);
+    document.getElementById("brate").textContent = n.block_rate ? n.block_rate.toFixed(2)+" 块/秒" : "—";
+    document.getElementById("peers").textContent = fmt(n.peers,0);
+    document.getElementById("peers_sub").textContent = n.index_synced ? "explorer 索引已同步" : "索引同步中";
+    document.getElementById("daa").textContent = fmt(n.daa,0);
+    document.getElementById("daa_sub").textContent = "共 " + fmt(n.blocks,0) + " 个区块";
+    document.getElementById("circ").textContent = fmt(n.circulating/1e8,0) + " NNN";
+    document.getElementById("netday").textContent = n.daily_emission ? fmt(n.daily_emission,0)+" NNN" : "—";
+
+    // trend vs 1h ago
+    var h1 = histSample(3600);
+    if(h1){
+      var d = (n.hashrate - h1.hr) / h1.hr * 100;
+      var el = document.getElementById("hr_trend");
+      el.textContent = "1 小时 " + (d>=0?"▲":"▼") + Math.abs(d).toFixed(1) + "%";
+      el.className = d>0.5?"up":(d<-0.5?"down":"flat");
+      var dd = (n.difficulty - h1.diff) / h1.diff * 100;
+      var e2 = document.getElementById("d_trend");
+      e2.textContent = "1 小时 " + (dd>=0?"▲":"▼") + Math.abs(dd).toFixed(1) + "%";
+      e2.className = dd>0.5?"up":(dd<-0.5?"down":"flat");
+    }
+    var o = S.ours;
+    document.getElementById("our_addr").textContent = short(o.address);
+    document.getElementById("our_addr").title = o.address;
+    document.getElementById("o_bal").textContent = fmt(o.coins,2) + " NNN";
+    document.getElementById("o_utxo").textContent = fmt(o.utxos,0) + " 块（coinbase）";
+    document.getElementById("o_rate").textContent = o.rate_per_min ? o.rate_per_min.toFixed(1)+" NNN/分" : "—";
+    document.getElementById("o_day").textContent = o.daily ? fmt(o.daily,0)+" NNN/天" : "—";
+    document.getElementById("o_emit").textContent = o.share_of_emission ? (o.share_of_emission*100).toFixed(2)+"%" : "—";
+    var secs = Math.max(0, Date.now()/1000 - S.updated);
+    document.getElementById("livetxt").textContent = "数据 " + ago(secs);
+    document.getElementById("livedot").className = "dot" + (secs>900?" dead":(secs>420?" stale":""));
+    document.getElementById("foot_meta").textContent =
+      "最后采集：" + new Date(S.updated*1000).toLocaleString("zh-CN") +
+      " · 矿工地址扫描：" + (MINERS ? ("累计扫描 " + MINERS.scans + " 轮") : "—");
+  }
+
+  function renderLocal(){
+    var g = document.getElementById("g_util"), el, L = LOCAL;
+    if(!L){ document.getElementById("rig_local_age").textContent = "本地采集器：无数据（推送未运行）"; return; }
+    var age = Date.now()/1000 - L.ts;
+    document.getElementById("rig_local_age").textContent = "本地采集器：" + ago(age) + (age>600?"（可能已停止）":"");
+    document.getElementById("rig_name").textContent = (L.gpu && L.gpu.name) || "GTX 1060 6GB";
+    document.getElementById("g_util").textContent = L.gpu && L.gpu.util!=null ? L.gpu.util+"%" : "—";
+    document.getElementById("g_temp").textContent = L.gpu && L.gpu.temp!=null ? L.gpu.temp+" ℃" : "—";
+    document.getElementById("g_pow").textContent = L.gpu && L.gpu.power!=null ? L.gpu.power+" W" : "—";
+    document.getElementById("g_mem").textContent = (L.gpu && L.gpu.mem_used!=null) ?
+      (L.gpu.mem_used + " / " + L.gpu.mem_total + " MiB") : "—";
+    document.getElementById("mem_bar").style.width = (L.gpu && L.gpu.mem_used) ?
+      Math.min(100,(L.gpu.mem_used/L.gpu.mem_total*100)).toFixed(1)+"%" : "0%";
+    document.getElementById("g_soft").textContent = L.miner ? (L.miner.software||"—") : "—";
+    document.getElementById("g_proc").textContent = L.miner && L.miner.running ? "运行中" : "未运行";
+    if(L.miner && L.miner.hashrate){
+      document.getElementById("g_soft").textContent = (L.miner.software||"") + " · " + L.miner.hashrate.toFixed(0) + " H/s";
+    }
+    if(S && S.network.hashrate && L.miner && L.miner.hashrate){
+      document.getElementById("o_share").textContent =
+        (L.miner.hashrate / S.network.hashrate * 100).toFixed(3) + "% (按算力" + (L.miner.hashrate_estimated?"估算":"") + ")";
+    } else if(S && S.ours && S.ours.share_of_emission){
+      document.getElementById("o_share").textContent =
+        (S.ours.share_of_emission*100).toFixed(2) + "% (按产出估算)";
+    }
+  }
+
+  function renderMiners(){
+    if(!MINERS || !MINERS.addr) return;
+    var rows = Object.keys(MINERS.addr).map(function(a){
+      var e = MINERS.addr[a] || {};
+      return {addr:a, n:e.n||0, ua:e.ua||"", last:e.last||0, mine:(a===MINERS.our_address)};
+    }).sort(function(x,y){ return y.n - x.n; });
+    var tot = rows.reduce(function(s,r){ return s+r.n; },0) || 1;
+    var tb = document.querySelector("#miners_tbl tbody");
+    tb.innerHTML = rows.slice(0,25).map(function(r,i){
+      var cpu = /nonsenseminer|cpuminer/i.test(r.ua);
+      var tag = r.ua ? (cpu ? '<span class="tag cpu">CPU</span>' : '<span class="tag gpu">GPU</span>') : '<span class="tag">—</span>';
+      return '<tr class="'+(r.mine?"mine":"")+'"><td>'+(i+1)+'</td>'+
+        '<td title="'+r.addr+'"><a href="https://explorer.nonsense.rodeo/addresses/'+r.addr+'" target="_blank">'+short(r.addr)+'</a>'+
+        (r.mine?' <span class="tag" style="color:var(--acc);border-color:var(--acc)">我们</span>':'')+'</td>'+
+        '<td class="num">'+fmt(r.n,0)+'</td><td class="num">'+(r.n/tot*100).toFixed(1)+'%</td>'+
+        '<td>'+tag+' <span class="addr">'+(r.ua||"—")+'</span></td></tr>';
+    }).join("");
+    document.getElementById("miners_meta").textContent =
+      "累计扫到 " + rows.length + " 个收款地址 · 最近一轮扫了 " + (MINERS.last_scan_blocks||0) +
+      " 个 coinbase · 更新 " + new Date((MINERS.updated||0)*1000).toLocaleString("zh-CN");
+  }
+
+  function renderBlocks(){
+    if(!BLOCKS) return;
+    var tb = document.querySelector("#blocks_tbl tbody");
+    tb.innerHTML = BLOCKS.items.slice(0,30).map(function(b){
+      return '<tr><td>'+fmt(b.daa,0)+'</td><td class="num">'+
+        new Date(b.ts).toLocaleTimeString("zh-CN")+'</td><td class="num">'+fmt(b.diff,0)+
+        '</td><td><a href="https://explorer.nonsense.rodeo/blocks/'+b.hash+'" target="_blank">'+
+        b.hash.slice(0,14)+'…</a></td><td class="num">'+fmt(b.txs,0)+'</td></tr>';
+    }).join("");
+  }
+
+  /* ---------------- chart ---------------- */
+  function histSample(secondsAgo){
+    if(!HIST || HIST.length<2) return null;
+    var cut = Date.now()/1000 - secondsAgo, best = null;
+    for(var i=HIST.length-1;i>=0;i--){ if(HIST[i].ts <= cut){ best = HIST[i]; break; } }
+    return best || HIST[0];
+  }
+  function drawChart(){
+    var cv = document.getElementById("chart"), ctx = cv.getContext("2d");
+    var dpr = window.devicePixelRatio || 1;
+    var W = cv.clientWidth, H = cv.clientHeight;
+    cv.width = W*dpr; cv.height = H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,W,H);
+    if(!HIST.length){ ctx.fillStyle="#5f6d66"; ctx.font="13px "+getComputedStyle(document.body).fontFamily;
+      ctx.fillText("暂无历史数据（等 Actions 采集几轮）",14,26); return; }
+    var cut = RANGE_H ? (Date.now()/1000 - RANGE_H*3600) : 0;
+    var d = HIST.filter(function(p){ return p.ts >= cut; });
+    if(d.length < 2) d = HIST.slice(-2);
+    var pad = {l:56,r:58,t:14,b:24};
+    var w = W-pad.l-pad.r, h = H-pad.t-pad.b;
+    var xs = d.map(function(p){return p.ts;});
+    var minX = Math.min.apply(null,xs), maxX = Math.max.apply(null,xs);
+    var maxHr = Math.max.apply(null,d.map(function(p){return p.hr;}))*1.08 || 1;
+    var maxDf = Math.max.apply(null,d.map(function(p){return p.diff;}))*1.08 || 1;
+    function X(t){ return pad.l + (maxX===minX?0:(t-minX)/(maxX-minX)*w); }
+    function Yhr(v){ return pad.t + h - v/maxHr*h; }
+    function Ydf(v){ return pad.t + h - v/maxDf*h; }
+    // grid
+    ctx.strokeStyle="#242b28"; ctx.fillStyle="#5f6d66"; ctx.font="11px "+getComputedStyle(document.body).fontFamily;
+    ctx.lineWidth=1;
+    for(var g=0;g<=4;g++){
+      var y = pad.t + h - g/4*h;
+      ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+w,y); ctx.stroke();
+      ctx.textAlign="right"; ctx.fillText((maxHr*g/4/1e6).toFixed(0)+"M", pad.l-8, y+3.5);
+      ctx.textAlign="left";  ctx.fillText((maxDf*g/4/1e6).toFixed(1)+"M", pad.l+w+8, y+3.5);
+    }
+    ctx.textAlign="center";
+    var t0 = new Date(minX*1000), t1 = new Date(maxX*1000), fmtT = function(t){
+      return RANGE_H && RANGE_H<=6 ? t.toLocaleTimeString("zh-CN",{hour:"2-digit",minute:"2-digit"})
+                                   : t.toLocaleString("zh-CN",{month:"numeric",day:"numeric",hour:"2-digit"}); };
+    ctx.fillText(fmtT(t0), pad.l+40, H-6);
+    ctx.fillText(fmtT(t1), pad.l+w-40, H-6);
+    function line(key, Y, color, width){
+      ctx.beginPath(); ctx.lineWidth=width||1.8; ctx.strokeStyle=color;
+      for(var i=0;i<d.length;i++){ var x=X(d[i].ts), y=Y(d[i][key]);
+        i? ctx.lineTo(x,y) : ctx.moveTo(x,y); }
+      ctx.stroke();
+    }
+    line("hr", Yhr, "#c8ff3d", 2);
+    line("diff", Ydf, "#7ff5c2", 1.4);
+    // last point dot + labels
+    var last = d[d.length-1];
+    ctx.fillStyle="#c8ff3d"; ctx.beginPath(); ctx.arc(X(last.ts),Yhr(last.hr),3.2,0,7); ctx.fill();
+    ctx.fillStyle="#7ff5c2"; ctx.beginPath(); ctx.arc(X(last.ts),Ydf(last.diff),2.6,0,7); ctx.fill();
+    document.getElementById("chartinfo").textContent =
+      d.length + " 个采样点 · 窗口 " + (RANGE_H? RANGE_H+" 小时":"全部");
+  }
+
+  /* ---------------- boot ---------------- */
+  function refresh(){
+    load("stats.json", function(j){ if(j){ S=j; renderTop(); } });
+    load("history.json", function(j){ if(j){ HIST=j; drawChart(); renderTop(); } });
+    load("miners.json", function(j){ if(j){ MINERS=j; renderMiners(); renderTop(); } });
+    load("blocks.json", function(j){ if(j){ BLOCKS=j; renderBlocks(); } });
+    load("local.json", function(j){ if(j){ LOCAL=j; renderLocal(); renderTop(); } });
+  }
+  document.getElementById("ranges").addEventListener("click", function(e){
+    if(e.target.tagName!=="BUTTON") return;
+    [].forEach.call(this.children, function(b){ b.className=""; });
+    e.target.className="on"; RANGE_H = parseFloat(e.target.dataset.h)||0; drawChart();
+  });
+  window.addEventListener("resize", drawChart);
+  refresh();
+  setInterval(refresh, 60000);
+  setInterval(function(){
+    if(S){ var s = Math.max(0, Date.now()/1000 - S.updated);
+      document.getElementById("livetxt").textContent = "数据 " + ago(s); }
+  }, 5000);
+})();
+</script>
+</body>
+</html>
