@@ -223,11 +223,12 @@
   window.onerror = function(m,s,l){ window.__errs.push(m+" @"+l); renderErrs(); };
 
   var REPO = "anyixuan798-wq/nonsense-nnn-dashboard";
-  var RAW  = "https://raw.githubusercontent.com/" + REPO + "/";
-  // 数据由本机每 5 分钟采集 → 强推单提交分支 live（不开 Pages 重新部署，避免 Pages 10 次/小时构建上限）
+  var REPO_DATA = "anyixuan798-wq/nonsense-nnn-data";
+  var RAW  = "https://raw.githubusercontent.com/" + REPO_DATA + "/main/data/";
+  // 数据由本机每 5 分钟采集 → 强推到独立数据仓库（dashboard 仓库只放代码，避免 Pages 10 次/小时构建上限）
   // 浏览器优先读 raw（CORS: *），失败回退同源 ./data/
   var SRC = [
-    function(name){ return RAW + "live/data/" + name + "?t=" + Date.now(); },
+    function(name){ return RAW + name + "?t=" + Date.now(); },
     function(name){ return "./data/" + name + "?t=" + Date.now(); }
   ];
   var S = null, HIST = [], MINERS = null, BLOCKS = null, LOCAL = null, RANGE_H = 1;

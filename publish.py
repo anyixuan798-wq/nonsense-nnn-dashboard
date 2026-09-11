@@ -13,15 +13,16 @@ from datetime import datetime, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "data")
-REPO = "anyixuan798-wq/nonsense-nnn-dashboard"
-BRANCH = "live"
+REPO = "anyixuan798-wq/nonsense-nnn-data"     # data feed (force-pushed every cycle)
+BRANCH = "main"
 FILES = ["stats.json", "history.json", "miners.json", "blocks.json"]
 
 
 def run(cmd, cwd=None, check=True):
-    p = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+    p = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True,
+                       encoding="utf-8", errors="replace")
     if check and p.returncode != 0:
-        print("! %s\n%s%s" % (" ".join(cmd), p.stdout[-500:], p.stderr[-800:]))
+        print("! %s\n%s%s" % (" ".join(cmd), (p.stdout or "")[-500:], (p.stderr or "")[-800:]))
     return p
 
 
@@ -33,14 +34,10 @@ def collect():
 
 def local_json():
     import local_pusher
-    m = local_pusher.miner_state()
-    if not m["hashrate"]:
-        est = local_pusher.estimate_hashrate()
-        if est:
-            m["hashrate"] = est
-            m["hashrate_estimated"] = True
-    return {"ts": round(time.time()), "gpu": local_pusher.nvidia(), "miner": m,
-            "host": os.environ.get("COMPUTERNAME", "")}
+    snap = local_pusher.snapshot()
+    json.dump(snap, open(os.path.join(DATA, "local.json"), "w", encoding="utf8"),
+              ensure_ascii=False, separators=(",", ":"))
+    return snap
 
 
 def push_branch(files):
@@ -66,7 +63,9 @@ def push_branch(files):
 
 
 def main():
-    rc = collect()
+    rc = 0
+    if "--no-collect" not in sys.argv:
+        rc = collect()
     files = {}
     for n in FILES:
         p = os.path.join(DATA, n)
