@@ -82,12 +82,15 @@ def main():
     utxos = int(addr.get("utxoCount") or 0)
 
     history = load("history.json", [])
-    last = history[-1] if history else None
     our_rate_per_min = None
-    if last and last.get("bal") is not None and balance >= last["bal"]:
-        dt_min = (now - last["ts"]) / 60
-        if dt_min > 0.5:
-            our_rate_per_min = (balance - last["bal"]) / 1e8 / dt_min
+    # window wide enough to survive a gap between blocks: compare against the newest
+    # sample that is at least 15 minutes old
+    for prev in reversed(history[:-1] if len(history) > 1 else []):
+        dt_min = (now - prev["ts"]) / 60
+        if dt_min >= 15:
+            if prev.get("bal") is not None and balance > prev["bal"]:
+                our_rate_per_min = (balance - prev["bal"]) / 1e8 / dt_min
+            break
 
     sample = {
         "ts": round(now),

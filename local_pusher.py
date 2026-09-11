@@ -64,7 +64,9 @@ def estimate_hashrate():
         except Exception:
             prev = None
         now = time.time()
-        out = None
+        out = prev.get("hr_est") if prev else None
+        if out and now - prev.get("hr_est_ts", 0) > 1200:
+            out = None                      # stale estimate
         if prev and bal >= prev.get("bal", 0) and bal > prev.get("bal", 0):
             dt = now - prev.get("ts", now)
             if dt > 30:
@@ -72,12 +74,13 @@ def estimate_hashrate():
                 net_per_min = 20 * 60.0        # 20 NNN/block at ~1 block/s network-wide
                 if nnn_per_min > 0:
                     out = net_hr * (nnn_per_min / net_per_min)
-            json.dump({"bal": bal, "ts": now}, open(STATE, "w"))
+            json.dump({"bal": bal, "ts": now, "hr_est": out, "hr_est_ts": now}, open(STATE, "w"))
         elif not prev:
-            json.dump({"bal": bal, "ts": now}, open(STATE, "w"))
+            json.dump({"bal": bal, "ts": now, "hr_est": None, "hr_est_ts": 0}, open(STATE, "w"))
         else:
             # balance unchanged: keep the older timestamp so the next run measures a wider window
-            json.dump({"bal": bal, "ts": prev.get("ts", now)}, open(STATE, "w"))
+            json.dump({"bal": bal, "ts": prev.get("ts", now),
+                       "hr_est": out, "hr_est_ts": prev.get("hr_est_ts", 0)}, open(STATE, "w"))
         return out
     except Exception:
         return None
