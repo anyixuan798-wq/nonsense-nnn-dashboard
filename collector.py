@@ -7,7 +7,7 @@ Fetches the public explorer, builds/updates:
   data/blocks.json   - last blocks (with our own blocks flagged)
 Run by GitHub Actions every 5 min; also runnable locally to seed data.
 """
-import json, os, sys, time, binascii, collections
+import json, os, re, sys, time, binascii, collections
 from datetime import datetime, timezone
 
 import httpx
@@ -176,7 +176,9 @@ def main():
             ua = ""
             try:
                 raw = binascii.unhexlify((t.get("raw") or {}).get("payload") or "")
-                ua = bytes(c for c in raw if 32 <= c < 127).decode("ascii", "replace")
+                txt = bytes(c for c in raw if 32 <= c < 127).decode("ascii", "replace")
+                m = re.findall(r"\d+\.\d+\.\d+/[\w\-\.]+", txt)
+                ua = m[-1] if m else txt[-24:]
             except Exception:
                 pass
             e = miners["addr"].setdefault(a, {"n": 0, "last": 0, "ua": ""})

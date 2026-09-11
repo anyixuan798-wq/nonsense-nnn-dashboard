@@ -40,10 +40,10 @@ def miner_state():
     except Exception:
         pass
     hr = None
-    if os.path.exists(MINER_LOG):
+    if os.path.exists(MINER_LOG) and time.time() - os.path.getmtime(MINER_LOG) < 900:
         try:
             tail = open(MINER_LOG, "rb").read()[-300000:].decode("utf8", "replace")
-            m = re.findall(r"([\d.]+)\s*([kKmMgG]?)hash/s", tail)
+            m = [x for x in re.findall(r"([\d.]+)\s*([kKmMgG]?)hash/s", tail) if float(x[0]) > 0]
             if m:
                 hr = float(m[-1][0]) * {"": 1, "k": 1e3, "m": 1e6, "g": 1e9}[m[-1][1].lower()]
         except Exception:
@@ -65,12 +65,19 @@ def estimate_hashrate():
             prev = None
         now = time.time()
         out = None
-        if prev and bal >= prev.get("bal", 0) and now - prev.get("ts", 0) > 30:
-            nnn_per_min = (bal - prev["bal"]) / 1e8 / ((now - prev["ts"]) / 60)
-            net_per_min = 20 * 60.0            # 20 NNN/block at ~1 block/s network-wide
-            if nnn_per_min > 0:
-                out = net_hr * (nnn_per_min / net_per_min)
-        json.dump({"bal": bal, "ts": now}, open(STATE, "w"))
+        if prev and bal >= prev.get("bal", 0) and bal > prev.get("bal", 0):
+            dt = now - prev.get("ts", now)
+            if dt > 30:
+                nnn_per_min = (bal - prev["bal"]) / 1e8 / (dt / 60)
+                net_per_min = 20 * 60.0        # 20 NNN/block at ~1 block/s network-wide
+                if nnn_per_min > 0:
+                    out = net_hr * (nnn_per_min / net_per_min)
+            json.dump({"bal": bal, "ts": now}, open(STATE, "w"))
+        elif not prev:
+            json.dump({"bal": bal, "ts": now}, open(STATE, "w"))
+        else:
+            # balance unchanged: keep the older timestamp so the next run measures a wider window
+            json.dump({"bal": bal, "ts": prev.get("ts", now)}, open(STATE, "w"))
         return out
     except Exception:
         return None

@@ -345,7 +345,9 @@
     var tb = document.querySelector("#miners_tbl tbody");
     tb.innerHTML = rows.slice(0,25).map(function(r,i){
       var cpu = /nonsenseminer|cpuminer/i.test(r.ua);
-      var tag = r.ua ? (cpu ? '<span class="tag cpu">CPU</span>' : '<span class="tag gpu">GPU</span>') : '<span class="tag">—</span>';
+      var tag = r.mine ? '<span class="tag gpu">本机 GPU</span>'
+              : (r.ua ? (cpu ? '<span class="tag cpu">CPU</span>' : '<span class="tag gpu">GPU</span>')
+                      : '<span class="tag">—</span>');
       return '<tr class="'+(r.mine?"mine":"")+'"><td>'+(i+1)+'</td>'+
         '<td title="'+r.addr+'"><a href="https://explorer.nonsense.rodeo/addresses/'+r.addr+'" target="_blank">'+short(r.addr)+'</a>'+
         (r.mine?' <span class="tag" style="color:var(--acc);border-color:var(--acc)">我们</span>':'')+'</td>'+
