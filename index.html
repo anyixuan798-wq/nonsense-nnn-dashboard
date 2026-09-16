@@ -225,9 +225,10 @@
   var REPO = "anyixuan798-wq/nonsense-nnn-dashboard";
   var REPO_DATA = "anyixuan798-wq/nonsense-nnn-data";
   var RAW  = "https://raw.githubusercontent.com/" + REPO_DATA + "/main/data/";
-  // 数据由本机每 5 分钟采集 → 强推到独立数据仓库（dashboard 仓库只放代码，避免 Pages 10 次/小时构建上限）
-  // 浏览器优先读 raw（CORS: *），失败回退同源 ./data/
+  // 主数据源：Cloudflare R2（Worker 静态托管），本机采集循环每 5 分钟直接上传；再回退 GitHub raw / 同源 ./data/
+  var R2   = "https://cf-hub.anyixuan798.workers.dev/sites/nonsense-nnn-dashboard/data/";
   var SRC = [
+    function(name){ return R2  + name + "?t=" + Date.now(); },
     function(name){ return RAW + name + "?t=" + Date.now(); },
     function(name){ return "./data/" + name + "?t=" + Date.now(); }
   ];

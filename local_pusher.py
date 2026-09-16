@@ -42,7 +42,11 @@ def miner_state():
     hr = None
     if os.path.exists(MINER_LOG) and time.time() - os.path.getmtime(MINER_LOG) < 900:
         try:
-            tail = open(MINER_LOG, "rb").read()[-300000:].decode("utf8", "replace")
+            raw = open(MINER_LOG, "rb").read()[-300000:]
+            # karlsen-miner 写的是 UTF-16LE 日志；按 utf-8 解出来全是 NUL，会导致正则匹配不到算力
+            tail = raw.decode("utf-8", "replace")
+            if tail.count("\x00") > max(16, len(tail) // 10):
+                tail = raw.decode("utf-16-le", "replace")
             m = [x for x in re.findall(r"([\d.]+)\s*([kKmMgG]?)hash/s", tail) if float(x[0]) > 0]
             if m:
                 hr = float(m[-1][0]) * {"": 1, "k": 1e3, "m": 1e6, "g": 1e9}[m[-1][1].lower()]
