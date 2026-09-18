@@ -147,23 +147,14 @@
   </div>
 
   <h2 class="sec">我的矿机</h2>
-  <div class="two">
-    <div class="panel">
-      <div class="row" style="margin-bottom:10px">
-        <div><b id="rig_name">GTX 1060 6GB</b> <span class="tag gpu" id="rig_tag">GPU</span></div>
-        <div class="addr" id="rig_local_age">本地采集器：—</div>
-      </div>
-      <div class="kv">
-        <div class="k">GPU 利用率</div><div class="v" id="g_util">—</div>
-        <div class="k">GPU 温度</div><div class="v" id="g_temp">—</div>
-        <div class="k">GPU 功耗</div><div class="v" id="g_pow">—</div>
-        <div class="k">显存占用</div><div class="v" id="g_mem">—</div>
-        <div class="k">矿工软件</div><div class="v" id="g_soft">—</div>
-        <div class="k">矿工进程</div><div class="v" id="g_proc">—</div>
-      </div>
-      <div class="bar" style="margin-top:12px"><i id="mem_bar" style="width:0%"></i></div>
+  <div class="panel" id="rigs_panel" style="margin-bottom:12px">
+    <div class="row" style="margin-bottom:10px">
+      <div><b>矿机列表</b> <span class="addr" id="rigs_total">—</span></div>
+      <div class="addr" id="rigs_age">本地采集器：—</div>
     </div>
-
+    <div class="grid" id="rigs" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))"></div>
+  </div>
+  <div class="two">
     <div class="panel">
       <div class="row" style="margin-bottom:10px">
         <div><b>收益</b></div>
@@ -176,6 +167,9 @@
         <div class="k">预估日产出</div><div class="v" id="o_day">—</div>
         <div class="k">算力占比</div><div class="v" id="o_share">—</div>
         <div class="k">占全网发行</div><div class="v" id="o_emit">—</div>
+      </div>
+      <div class="addr" style="margin-top:8px" id="pool_note">
+        提示：也可以接矿池 pool.meshpool.net:3338（stratum，fishhashplus）。池子数学期望与 solo 相同、额外抽水，仅作隧道/节点故障时的备选。
       </div>
     </div>
   </div>
@@ -302,9 +296,9 @@
     document.getElementById("o_day").textContent = o.daily ? fmt(o.daily,0)+" NNN/天" : "—";
     document.getElementById("o_emit").textContent = o.share_of_emission ? (o.share_of_emission*100).toFixed(2)+"%" : "—";
     var sh = null;
-    if(LOCAL && LOCAL.miner && LOCAL.miner.hashrate && n.hashrate)
-      sh = (LOCAL.miner.hashrate / n.hashrate * 100).toFixed(3) + "% (按算力" +
-           (LOCAL.miner.hashrate_estimated ? "估算" : "") + ")";
+    var rigHr = (LOCAL && (LOCAL.total_hashrate || ((LOCAL.miner || {}).hashrate))) || 0;
+    if(rigHr && n.hashrate)
+      sh = (rigHr / n.hashrate * 100).toFixed(3) + "% (按算力)";
     else if(o.share_of_emission) sh = (o.share_of_emission*100).toFixed(2) + "% (按产出估算)";
     document.getElementById("o_share").textContent = sh || "—";
     var secs = Math.max(0, Date.now()/1000 - S.updated);
@@ -316,27 +310,32 @@
   }
 
   function renderLocal(){
-    var g = document.getElementById("g_util"), el, L = LOCAL;
-    if(!L){ document.getElementById("rig_local_age").textContent = "本地采集器：无数据（推送未运行）"; return; }
+    var L = LOCAL;
+    if(!L){ document.getElementById("rigs_age").textContent = "本地采集器：无数据（推送未运行）"; return; }
     var age = Date.now()/1000 - L.ts;
-    document.getElementById("rig_local_age").textContent = "本地采集器：" + ago(age) + (age>600?"（可能已停止）":"");
-    document.getElementById("rig_name").textContent = (L.gpu && L.gpu.name) || "GTX 1060 6GB";
-    document.getElementById("g_util").textContent = L.gpu && L.gpu.util!=null ? L.gpu.util+"%" : "—";
-    document.getElementById("g_temp").textContent = L.gpu && L.gpu.temp!=null ? L.gpu.temp+" ℃" : "—";
-    document.getElementById("g_pow").textContent = L.gpu && L.gpu.power!=null ? L.gpu.power+" W" : "—";
-    document.getElementById("g_mem").textContent = (L.gpu && L.gpu.mem_used!=null) ?
-      (L.gpu.mem_used + " / " + L.gpu.mem_total + " MiB") : "—";
-    document.getElementById("mem_bar").style.width = (L.gpu && L.gpu.mem_used) ?
-      Math.min(100,(L.gpu.mem_used/L.gpu.mem_total*100)).toFixed(1)+"%" : "0%";
-    document.getElementById("g_soft").textContent = L.miner ? (L.miner.software||"—") : "—";
-    document.getElementById("g_proc").textContent = L.miner && L.miner.running ? "运行中" : "未运行";
-    if(L.miner && L.miner.hashrate){
-      document.getElementById("g_soft").textContent = (L.miner.software||"") + " · " + L.miner.hashrate.toFixed(0) + " H/s";
-    }
-    if(S && S.network.hashrate && L.miner && L.miner.hashrate){
-      document.getElementById("o_share").textContent =
-        (L.miner.hashrate / S.network.hashrate * 100).toFixed(3) + "% (按算力" + (L.miner.hashrate_estimated?"估算":"") + ")";
-    }
+    document.getElementById("rigs_age").textContent = "采集于 " + ago(age) + (age > 900 ? "（采集器可能已停止）" : "");
+    var rigs = L.rigs || [{name: "本机 GPU", host: L.host, gpu: L.gpu, miner: L.miner}];
+    var total = 0;
+    document.getElementById("rigs").innerHTML = rigs.map(function(r){
+      var g = r.gpu || {}, m = r.miner || {};
+      var hr = m.hashrate || 0; total += hr;
+      var pct = (g.mem_used && g.mem_total) ? Math.min(100, g.mem_used / g.mem_total * 100).toFixed(0) : 0;
+      return '<div class="card">' +
+        '<div class="k"><span>' + (r.name || "rig") + '</span>' +
+          '<span class="tag ' + (m.running ? "gpu" : "") + '">' + (m.running ? "运行中" : "未运行") + '</span></div>' +
+        '<div class="v" style="font-size:20px">' + (hr ? hash(hr) : "—") + (m.hashrate_estimated ? ' <span class="s">(估算)</span>' : '') + '</div>' +
+        '<div class="kv" style="margin-top:8px;font-size:12.5px">' +
+          '<div class="k">GPU</div><div class="v">' + (g.name || "—") + '</div>' +
+          '<div class="k">利用率 / 温度</div><div class="v">' + (g.util != null ? g.util + "%" : "—") + " / " + (g.temp != null ? g.temp + "℃" : "—") + '</div>' +
+          '<div class="k">功耗</div><div class="v">' + (g.power != null ? g.power + " W" : "—") + '</div>' +
+          '<div class="k">显存</div><div class="v">' + (g.mem_used != null ? g.mem_used + " / " + g.mem_total + " MiB" : "—") + '</div>' +
+        '</div>' +
+        '<div class="bar" style="margin-top:10px"><i style="width:' + pct + '%"></i></div>' +
+        '<div class="addr" style="margin-top:6px">' + (m.software || "") +
+          (r.error ? " · 采集失败：" + r.error : "") + '</div>' +
+      '</div>';
+    }).join("");
+    document.getElementById("rigs_total").textContent = "合计 " + hash(total);
   }
 
   function renderMiners(){

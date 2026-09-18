@@ -32,12 +32,57 @@ def collect():
     return collector.main()
 
 
+def ssh_rig():
+    """Second rig: the rented GPU box. Pulled over SSH (key auth, no password)."""
+    try:
+        import paramiko
+        c = paramiko.SSHClient()
+        c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        c.connect("hz01-ssh.gpuhome.cc", port=30107, username="root",
+                  key_filename=os.path.expanduser(r"~\.ssh\nnn_gpuhome"),
+                  timeout=20, banner_timeout=20, auth_timeout=20,
+                  look_for_keys=False, allow_agent=False)
+        cmd = ("nvidia-smi --query-gpu=name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw "
+               "--format=csv,noheader,nounits; echo '---'; "
+               "grep -oE 'Current hashrate is [0-9.]+ [KM]?hash/s' /root/nonsense/logs/miner.log | tail -1; "
+               "pgrep -c karlsen-miner || true")
+        _, out, _ = c.exec_command(cmd, timeout=25)
+        txt = out.read().decode("utf8", "replace")
+        c.close()
+        lines = [l for l in txt.splitlines() if l.strip()]
+        g = lines[0].split(",") if lines else []
+        hr = None
+        for l in lines:
+            if "Current hashrate" in l:
+                v, unit = l.split("is")[1].strip().split()
+                hr = float(v) * {"hash/s": 1, "Khash/s": 1e3, "Mhash/s": 1e6, "Ghash/s": 1e9}.get(unit, 1)
+        running = any(l.strip() == "1" for l in lines[-1:])
+        return {
+            "name": "服务器 RTX 2080 Ti 22G", "host": "hz01-ssh.gpuhome.cc",
+            "gpu": {"name": g[0].strip() if g else "?", "util": int(float(g[1])) if g else None,
+                    "mem_used": int(float(g[2])) if g else None, "mem_total": int(float(g[3])) if g else None,
+                    "temp": int(float(g[4])) if g else None, "power": round(float(g[5]), 1) if g else None},
+            "miner": {"running": running, "hashrate": hr,
+                      "software": "karlsen-miner GPU 3.1.0 (seed patched -> NonsenseHashV2)"},
+        }
+    except Exception as e:
+        print("ssh rig failed:", e)
+        return {"name": "服务器 RTX 2080 Ti 22G", "error": str(e)[:120], "gpu": None, "miner": None}
+
+
 def local_json():
     import local_pusher
     snap = local_pusher.snapshot()
-    json.dump(snap, open(os.path.join(DATA, "local.json"), "w", encoding="utf8"),
+    home = {"name": "本机 GTX 1060 6GB", "host": snap.get("host", "home"),
+            "gpu": snap.get("gpu"), "miner": snap.get("miner")}
+    rigs = [home, ssh_rig()]
+    total = sum((r.get("miner") or {}).get("hashrate") or 0 for r in rigs)
+    out = dict(snap)
+    out["rigs"] = rigs
+    out["total_hashrate"] = total
+    json.dump(out, open(os.path.join(DATA, "local.json"), "w", encoding="utf8"),
               ensure_ascii=False, separators=(",", ":"))
-    return snap
+    return out
 
 
 def push_branch(files):
